@@ -1,0 +1,15 @@
+[package]
+title = "Scene Optimizer"
+version = "1.0.0"
+description = "Analyzes and optimizes USD scenes for better performance"
+author = "Your Name"
+repository = "https://github.com/yourusername/scene-optimizer"
+
+[dependencies]
+omni.ui = "*"
+omni.usd = "*"
+omni.kit.window = "*"
+
+[python]
+entrypoint = "extension"
+
