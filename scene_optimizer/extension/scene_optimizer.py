@@ -17,6 +17,8 @@ class SceneOptimizerWindow(ui.Window):
         self._analyzer = SceneAnalyzer()
         self._optimizer = SceneOptimizer()
         self._analysis_results = {}
+        self._before_metrics = None  # Store metrics before optimization
+        self._after_metrics = None   # Store metrics after optimization
         self._build_ui()
     
     def _build_ui(self):
@@ -58,6 +60,15 @@ class SceneOptimizerWindow(ui.Window):
                         self._stats_label = ui.Label("Run analysis to see statistics", word_wrap=True)
                         ui.Button("Update Statistics", clicked_fn=self._update_statistics)
                 
+                # Before/After Metrics Section
+                with ui.CollapsableFrame("Before/After Comparison", collapsed=False):
+                    with ui.VStack(spacing=5):
+                        ui.Label("Compare scene metrics before and after optimization", word_wrap=True)
+                        self._metrics_comparison_label = ui.Label("Run analysis and apply optimizations to see comparison", word_wrap=True)
+                        ui.Button("Capture Before Metrics", clicked_fn=self._capture_before_metrics)
+                        ui.Button("Capture After Metrics", clicked_fn=self._capture_after_metrics)
+                        ui.Button("Show Comparison", clicked_fn=self._show_metrics_comparison)
+                
                 # Actions
                 ui.Spacer()
                 with ui.HStack():
@@ -89,8 +100,13 @@ Default Prim: {default_prim.GetPath() if default_prim else "None"}
             self._analysis_results_label.text = "Error: No USD stage loaded"
             return
         
+        # Capture before metrics automatically when analyzing
+        self._before_metrics = self._analyzer.get_performance_metrics(stage)
+        
         self._analysis_results = self._analyzer.analyze(stage)
         self._display_analysis_results()
+        
+        print("[Scene Optimizer] Before metrics captured")
     
     def _display_analysis_results(self):
         """Display analysis results in the UI."""
@@ -167,8 +183,19 @@ Default Prim: {default_prim.GetPath() if default_prim else "None"}
             print("Optimizations applied:")
             for opt in optimizations_applied:
                 print(f"  - {opt}")
+            
+            # Capture after metrics
+            stage = get_context().get_stage()
+            if stage:
+                self._after_metrics = self._analyzer.get_performance_metrics(stage)
+                print("[Scene Optimizer] After metrics captured")
+            
             self._refresh_scene_info()
             self._analyze_scene()  # Re-analyze after optimization
+            
+            # Auto-show comparison if both metrics exist
+            if self._before_metrics and self._after_metrics:
+                self._show_metrics_comparison()
         else:
             print("No optimizations selected")
     
@@ -199,23 +226,171 @@ Estimated Memory: {stats['estimated_memory_mb']:.2f} MB
     
     def _export_report(self):
         """Export analysis report to file."""
-        if not self._analysis_results:
-            print("No analysis results to export")
-            return
-        
         import json
         from pathlib import Path
+        from datetime import datetime
+        
+        report = {
+            "timestamp": datetime.now().isoformat(),
+            "analysis_results": self._analysis_results if self._analysis_results else {},
+            "before_metrics": self._before_metrics if self._before_metrics else None,
+            "after_metrics": self._after_metrics if self._after_metrics else None
+        }
+        
+        # Calculate improvements if both metrics exist
+        if self._before_metrics and self._after_metrics:
+            improvements = {}
+            for key in self._before_metrics.keys():
+                before_val = self._before_metrics.get(key, 0)
+                after_val = self._after_metrics.get(key, 0)
+                if before_val != 0:
+                    improvement_pct = ((before_val - after_val) / before_val) * 100
+                    improvements[key] = {
+                        "before": before_val,
+                        "after": after_val,
+                        "change": after_val - before_val,
+                        "improvement_percent": improvement_pct
+                    }
+            report["improvements"] = improvements
         
         report_path = Path.home() / "scene_optimizer_report.json"
         with open(report_path, 'w') as f:
-            json.dump(self._analysis_results, f, indent=2, default=str)
+            json.dump(report, f, indent=2, default=str)
         
         print(f"Report exported to: {report_path}")
+        if self._before_metrics and self._after_metrics:
+            print("Report includes before/after metrics comparison")
+    
+    def _capture_before_metrics(self):
+        """Manually capture before metrics."""
+        stage = get_context().get_stage()
+        if not stage:
+            print("Error: No USD stage loaded")
+            return
+        
+        self._before_metrics = self._analyzer.get_performance_metrics(stage)
+        print("[Scene Optimizer] Before metrics captured manually")
+        self._metrics_comparison_label.text = "Before metrics captured. Apply optimizations and capture after metrics."
+    
+    def _capture_after_metrics(self):
+        """Manually capture after metrics."""
+        stage = get_context().get_stage()
+        if not stage:
+            print("Error: No USD stage loaded")
+            return
+        
+        self._after_metrics = self._analyzer.get_performance_metrics(stage)
+        print("[Scene Optimizer] After metrics captured manually")
+        if self._before_metrics:
+            self._show_metrics_comparison()
+        else:
+            self._metrics_comparison_label.text = "After metrics captured. Capture before metrics to see comparison."
+    
+    def _show_metrics_comparison(self):
+        """Display before/after metrics comparison."""
+        if not self._before_metrics:
+            self._metrics_comparison_label.text = "Error: No before metrics captured. Run analysis first."
+            return
+        
+        if not self._after_metrics:
+            self._metrics_comparison_label.text = "Error: No after metrics captured. Apply optimizations first."
+            return
+        
+        # Calculate improvements
+        def calculate_improvement(before, after):
+            """Calculate percentage improvement."""
+            if before == 0:
+                return 0.0
+            change = before - after
+            percent = (change / before) * 100
+            return percent
+        
+        def format_metric(value, is_percentage=False):
+            """Format metric value for display."""
+            if isinstance(value, float):
+                if is_percentage:
+                    return f"{value:+.1f}%"
+                return f"{value:,.2f}"
+            return f"{value:,}"
+        
+        # Build comparison text
+        comparison_text = "📊 BEFORE / AFTER COMPARISON\n"
+        comparison_text += "=" * 50 + "\n\n"
+        
+        # Key metrics to compare
+        metrics_to_compare = [
+            ("Total Prims", "total_prims", False),
+            ("Mesh Prims", "mesh_prims", False),
+            ("Unique Meshes", "unique_meshes", False),
+            ("Instances", "instances", False),
+            ("Total Polygons", "total_polygons", False),
+            ("Total Vertices", "total_vertices", False),
+            ("Total Materials", "total_materials", False),
+            ("Unused Materials", "unused_materials", False),
+            ("Duplicate Groups", "duplicate_groups", False),
+            ("Estimated Draw Calls", "estimated_draw_calls", False),
+            ("Estimated Memory (MB)", "estimated_memory_mb", False),
+            ("Hidden Prims", "hidden_prims", False),
+        ]
+        
+        for label, key, is_percentage in metrics_to_compare:
+            before_val = self._before_metrics.get(key, 0)
+            after_val = self._after_metrics.get(key, 0)
+            
+            if key in ["total_prims", "mesh_prims", "unique_meshes", "instances", 
+                      "total_polygons", "total_vertices", "total_materials", 
+                      "unused_materials", "duplicate_groups", "estimated_draw_calls", "hidden_prims"]:
+                # For these, lower is better
+                improvement = calculate_improvement(before_val, after_val)
+                arrow = "↓" if improvement > 0 else "↑" if improvement < 0 else "→"
+                color_indicator = "🟢" if improvement > 0 else "🔴" if improvement < 0 else "⚪"
+            else:
+                # For memory, lower is better
+                improvement = calculate_improvement(before_val, after_val)
+                arrow = "↓" if improvement > 0 else "↑" if improvement < 0 else "→"
+                color_indicator = "🟢" if improvement > 0 else "🔴" if improvement < 0 else "⚪"
+            
+            comparison_text += f"{color_indicator} {label}:\n"
+            comparison_text += f"   Before: {format_metric(before_val)}\n"
+            comparison_text += f"   After:  {format_metric(after_val)}\n"
+            comparison_text += f"   Change: {format_metric(improvement, True)} {arrow}\n\n"
+        
+        # Summary
+        comparison_text += "\n" + "=" * 50 + "\n"
+        comparison_text += "📈 SUMMARY:\n\n"
+        
+        # Calculate key improvements
+        memory_improvement = calculate_improvement(
+            self._before_metrics.get("estimated_memory_mb", 0),
+            self._after_metrics.get("estimated_memory_mb", 0)
+        )
+        draw_call_improvement = calculate_improvement(
+            self._before_metrics.get("estimated_draw_calls", 0),
+            self._after_metrics.get("estimated_draw_calls", 0)
+        )
+        polygon_reduction = calculate_improvement(
+            self._before_metrics.get("total_polygons", 0),
+            self._after_metrics.get("total_polygons", 0)
+        )
+        
+        comparison_text += f"💾 Memory: {format_metric(memory_improvement, True)} reduction\n"
+        comparison_text += f"🎨 Draw Calls: {format_metric(draw_call_improvement, True)} reduction\n"
+        comparison_text += f"🔺 Polygons: {format_metric(polygon_reduction, True)} reduction\n"
+        
+        if memory_improvement > 0 or draw_call_improvement > 0 or polygon_reduction > 0:
+            comparison_text += "\n✅ Optimization successful! Performance improved."
+        else:
+            comparison_text += "\n⚠️ No significant improvements detected."
+        
+        self._metrics_comparison_label.text = comparison_text
     
     def _reset_scene(self):
         """Reset scene analysis."""
         self._analysis_results = {}
+        self._before_metrics = None
+        self._after_metrics = None
         self._analysis_results_label.text = ""
         self._stats_label.text = "Run analysis to see statistics"
+        self._metrics_comparison_label.text = "Run analysis and apply optimizations to see comparison"
         print("Scene analysis reset")
 

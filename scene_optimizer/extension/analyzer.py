@@ -211,4 +211,63 @@ class SceneAnalyzer:
         stats["estimated_memory_mb"] = (total_vertices * 12) / (1024 * 1024)
         
         return stats
+    
+    def get_performance_metrics(self, stage: Usd.Stage) -> dict:
+        """Get detailed performance metrics for before/after comparison."""
+        stats = self.get_statistics(stage)
+        
+        # Count unique meshes (not instances)
+        unique_meshes = 0
+        instance_count = 0
+        duplicate_groups = 0
+        
+        meshes = self._get_all_meshes(stage)
+        mesh_hashes = defaultdict(list)
+        
+        for mesh_prim in meshes:
+            if mesh_prim.IsInstance():
+                instance_count += 1
+            else:
+                mesh = UsdGeom.Mesh(mesh_prim)
+                points = mesh.GetPointsAttr().Get()
+                face_vertex_counts = mesh.GetFaceVertexCountsAttr().Get()
+                
+                if points and face_vertex_counts:
+                    mesh_data = (
+                        tuple(points),
+                        tuple(face_vertex_counts)
+                    )
+                    mesh_hash = hashlib.md5(str(mesh_data).encode()).hexdigest()
+                    mesh_hashes[mesh_hash].append(mesh_prim)
+                    unique_meshes += 1
+        
+        # Count duplicate groups
+        for mesh_group in mesh_hashes.values():
+            if len(mesh_group) > 1:
+                duplicate_groups += 1
+        
+        # Calculate draw calls (rough estimate: one per unique mesh + instances)
+        estimated_draw_calls = unique_meshes + instance_count
+        
+        # Count materials
+        materials = self._get_all_materials(stage)
+        used_materials = self._get_used_materials(stage)
+        unused_material_count = len([m for m in materials if m not in used_materials])
+        
+        metrics = {
+            "total_prims": stats["total_prims"],
+            "mesh_prims": stats["mesh_prims"],
+            "unique_meshes": unique_meshes,
+            "instances": stats["instances"],
+            "total_polygons": stats["total_polygons"],
+            "total_vertices": stats["total_vertices"],
+            "total_materials": stats["total_materials"],
+            "unused_materials": unused_material_count,
+            "duplicate_groups": duplicate_groups,
+            "estimated_draw_calls": estimated_draw_calls,
+            "estimated_memory_mb": stats["estimated_memory_mb"],
+            "hidden_prims": len(self._find_hidden_geometry(stage))
+        }
+        
+        return metrics
 

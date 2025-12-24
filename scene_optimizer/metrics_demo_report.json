@@ -1,0 +1,99 @@
+{
+  "timestamp": "2025-12-24T10:21:43.354834",
+  "before_metrics": {
+    "total_prims": 5000,
+    "mesh_prims": 3200,
+    "unique_meshes": 2500,
+    "instances": 0,
+    "total_polygons": 2500000,
+    "total_vertices": 1250000,
+    "total_materials": 150,
+    "unused_materials": 45,
+    "duplicate_groups": 12,
+    "estimated_draw_calls": 2500,
+    "estimated_memory_mb": 125.5,
+    "hidden_prims": 23
+  },
+  "after_metrics": {
+    "total_prims": 3200,
+    "mesh_prims": 2488,
+    "unique_meshes": 2488,
+    "instances": 12,
+    "total_polygons": 2100000,
+    "total_vertices": 1050000,
+    "total_materials": 105,
+    "unused_materials": 0,
+    "duplicate_groups": 0,
+    "estimated_draw_calls": 2500,
+    "estimated_memory_mb": 78.3,
+    "hidden_prims": 0
+  },
+  "improvements": {
+    "total_prims": {
+      "before": 5000,
+      "after": 3200,
+      "change": -1800,
+      "improvement_percent": 36.0
+    },
+    "mesh_prims": {
+      "before": 3200,
+      "after": 2488,
+      "change": -712,
+      "improvement_percent": 22.25
+    },
+    "unique_meshes": {
+      "before": 2500,
+      "after": 2488,
+      "change": -12,
+      "improvement_percent": 0.48
+    },
+    "total_polygons": {
+      "before": 2500000,
+      "after": 2100000,
+      "change": -400000,
+      "improvement_percent": 16.0
+    },
+    "total_vertices": {
+      "before": 1250000,
+      "after": 1050000,
+      "change": -200000,
+      "improvement_percent": 16.0
+    },
+    "total_materials": {
+      "before": 150,
+      "after": 105,
+      "change": -45,
+      "improvement_percent": 30.0
+    },
+    "unused_materials": {
+      "before": 45,
+      "after": 0,
+      "change": -45,
+      "improvement_percent": 100.0
+    },
+    "duplicate_groups": {
+      "before": 12,
+      "after": 0,
+      "change": -12,
+      "improvement_percent": 100.0
+    },
+    "estimated_draw_calls": {
+      "before": 2500,
+      "after": 2500,
+      "change": 0,
+      "improvement_percent": 0.0
+    },
+    "estimated_memory_mb": {
+      "before": 125.5,
+      "after": 78.3,
+      "change": -47.2,
+      "improvement_percent": 37.60956175298805
+    },
+    "hidden_prims": {
+      "before": 23,
+      "after": 0,
+      "change": -23,
+      "improvement_percent": 100.0
+    }
+  }
+}
